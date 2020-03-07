@@ -1,20 +1,17 @@
 const global = {
     log: 1, //日志模式:0不显示 1全部显示 2精简显示,推荐值:1
+    parallel: false, //是否顺序签到(true则同时签到,可能会出现内存占用过高导致执行失败的情况;false则签到速度会慢一些,但是很稳)
     sign: { //用于设置哪些需要进行签到,哪些不处理
         baidu_tieba: true,
         iqiyi: true,
-        _52pojie: true,
+        _52pojie: false,
         netease_music: true,
         v2ex: true,
-        weibo_super: false,
-        china_telecom: true
+        china_telecom: true,
+        rrtv: true,
+        eleme: false
     },
     data: {
-        weibo_super: [
-            ["周杰伦", "1008087a8941058aaf4df5147042ce104568da"],
-            // ["IU", "100808d4151ccebfbae55e8f7c0f68f6d18e4d"],
-            // ["SWITCH", "1008084239f063a3d4fb9d38a0182be6e39e76"],
-        ],
         china_telecom: "" //此处输入要签到的手机号码,半角双引号中间
     }
 }
@@ -30,19 +27,9 @@ const global = {
 您也可直接在tg中联系@wechatu
 */
 // #region 固定头部
-let isQuantumultX = $task != undefined; //判断当前运行环境是否是qx
-let isSurge = $httpClient != undefined; //判断当前运行环境是否是surge
-// 判断request还是respons
-// down方法重写
-var $done = (obj = {}) => {
-    var isRequest = typeof $request != "undefined";
-    if (isQuantumultX) {
-        return isRequest ? $done({}) : ""
-    }
-    if (isSurge) {
-        return isRequest ? $done({}) : $done()
-    }
-}
+let isQuantumultX = typeof $task != 'undefined'; //判断当前运行环境是否是qx
+let isSurge = typeof $httpClient != 'undefined'; //判断当前运行环境是否是surge
+let isRequest = typeof $request != "undefined"; //判断是否是请求
 // http请求
 var $task = isQuantumultX ? $task : {};
 var $httpClient = isSurge ? $httpClient : {};
@@ -52,6 +39,9 @@ var $persistentStore = isSurge ? $persistentStore : {};
 // 消息通知
 var $notify = isQuantumultX ? $notify : {};
 var $notification = isSurge ? $notification : {};
+
+
+var done = (value = {}) => isQuantumultX ? (isRequest ? $done(value) : null) : ((isRequest ? $done(value) : $done()));
 // #endregion 固定头部
 
 // #region 网络请求专用转换
@@ -162,15 +152,15 @@ if (isSurge) {
 
 //#endregion
 
-if (typeof $request != "undefined") {
-    getCookie();
-    $done({});
-} else {
-    execute();
-    $done({});
+let master = () => {
+    if (typeof $request != "undefined") {
+        getCookie();
+    } else {
+        execute();
+    }
 }
 
-function getCookie() {
+let getCookie = () => {
     //#region 基础配置
     const config = {
         baidu_tieba_h5: {
@@ -208,15 +198,20 @@ function getCookie() {
             name: '京东Cookie',
             Host: 'api.m.jd.com'
         },
-        weibo_super: {
-            cookie: 'super_cookie',
-            name: '微博超话',
-            Host: 'weibo.com'
-        },
         china_telecom: {
             cookie: 'cookie.10000',
             name: '电信营业厅',
             Host: 'wapside.189.cn'
+        },
+        eleme: {
+            cookie: "CookieELM",
+            name: '饿了么Cookie',
+            Host: 'ele.me'
+        },
+        rrtv: {
+            cookie: 'chavy_cookie_rrtv',
+            name: '人人视频Cookie',
+            Host: 'rr.tv'
         }
     }
     //#endregion
@@ -252,7 +247,7 @@ function getCookie() {
     var isValidRequest = request && request.headers && request.headers.Cookie
     if (isValidRequest) {
         let headers = request.headers;
-        // console.log(`【Cookie触发】${headers.Host}`)
+        // console.log(`【Cookie触发】${headers.Host}-${headers.Cookie}`)
         //#region 百度贴吧-H5
         if (headers.Host == config.baidu_tieba_h5.Host) {
             var regex = /(^|)BDUSS=([^;]*)(;|$)/;
@@ -308,24 +303,33 @@ function getCookie() {
             updateCookie(config.jd, headerCookie);
         }
         //#endregion
-        //#region 微博超话
-        if (headers.Host.indexOf(config.weibo_super.Host) >= 0) {
-            var headerCookie = headers.Cookie;
-            updateCookie(config.weibo_super, headerCookie);
-        }
-        //#endregion
         //#region 中国电信
         if (headers.Host.indexOf(config.china_telecom.Host) >= 0) {
             var headerCookie = headers.Cookie;
             updateCookie(config.china_telecom, headerCookie);
         }
         //#endregion
+        //#region 饿了么
+        if (headers.Host.indexOf(config.eleme.Host) >= 0) {
+            var headerCookie = headers.Cookie;
+            var cookieVal = helper.getCookieByName(headerCookie, "USERID");
+            updateCookie(config.eleme, cookieVal);
+        }
+        //#endregion
+        //#region 人人视频
+        if (headers.Host.indexOf(config.rrtv.Host) >= 0) {
+            var headerToken = headers.token;
+            updateCookie(config.rrtv, headerToken);
+        }
+        //#endregion
     }
+    $done();
+
     //#endregion
 
 }
 
-function execute() {
+let execute = () => {
     //#region 签到配置,请勿修改
     const config = {
         baidu_tieba: {
@@ -428,20 +432,6 @@ function execute() {
                 notify: ''
             }
         },
-        weibo_super: {
-            cookie: 'super_cookie',
-            name: '微博超话',
-            provider: {
-                url: '',
-                headers: {
-                    Cookie: ''
-                }
-            },
-            data: {
-                notify: '',
-                result: []
-            }
-        },
         china_telecom: {
             cookie: 'cookie.10000',
             name: '中国电信',
@@ -462,6 +452,98 @@ function execute() {
             },
             data: {
                 notify: ''
+            }
+        },
+        eleme: {
+            cookie: 'CookieELM',
+            name: '饿了么',
+            provider: {
+                sign: {
+                    url: `https://h5.ele.me/restapi/member/v2/users/`,
+                    method: 'POST',
+                },
+                check: {
+                    url: `https://h5.ele.me/restapi/member/v1/users/`,
+                    method: 'GET',
+                },
+                prize: {
+                    url: `https://h5.ele.me/restapi/member/v2/users/`,
+                    method: 'POST',
+                    body: ''
+                }
+            },
+            data: {
+                notify: ''
+            }
+        },
+        rrtv: {
+            cookie: 'chavy_cookie_rrtv',
+            name: '人人视频',
+            provider: {
+                daily: {
+                    url: 'https://api.rr.tv/rrtv-activity/sign/sign',
+                    method: 'POST',
+                    headers: {
+                        token: "",
+                        clientType: 'ios_rrsp_jzsp',
+                        'Accept-Encoding': 'gzip, deflate, br',
+                        Connection: 'keep-alive',
+                        clientVersion: '4.3.5',
+                        'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8',
+                        Origin: 'https://mobile.rr.tv',
+                        Referer: 'https://mobile.rr.tv/',
+                        Accept: 'application/json, text/plain, */*',
+                        Host: 'api.rr.tv',
+                        'Accept-Language': 'zh-cn',
+                        'Content-Length': '12',
+                        'User-Agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 13_3_1 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Mobile/15E148 App/RRSPApp platform/iPhone AppVersion/4.3.5'
+                    }
+                },
+                welfare: {
+                    url: 'https://api.rr.tv/dailyWelfare/getWelfare',
+                    method: 'POST',
+                    headers: {
+                        token: "",
+                        clientType: 'web',
+                        'Accept-Encoding': 'gzip, deflate, br',
+                        Connection: 'keep-alive',
+                        clientVersion: '0.0.1',
+                        'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8',
+                        Origin: 'https://mobile.rr.tv',
+                        Referer: 'https://mobile.rr.tv/mission/',
+                        Accept: 'application/json, text/plain, */*',
+                        Host: 'api.rr.tv',
+                        'Accept-Language': 'zh-cn',
+                        'Content-Length': '45',
+                        'User-Agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 13_3_1 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Mobile/15E148 App/RRSPApp platform/iPhone AppVersion/4.3.5'
+                    }
+                },
+                info: {
+                    url: 'https://api.rr.tv/user/profile',
+                    method: 'POST',
+                    headers: {
+                        token: "",
+                        clientType: 'ios_rrsp_jzsp',
+                        'Accept-Encoding': 'gzip, deflate, br',
+                        Connection: 'keep-alive',
+                        clientVersion: '4.3.5',
+                        'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8',
+                        Origin: 'https://mobile.rr.tv',
+                        Referer: 'https://mobile.rr.tv/mission/',
+                        Accept: 'application/json, text/plain, */*',
+                        Host: 'api.rr.tv',
+                        'Accept-Language': 'zh-cn',
+                        'Content-Length': '0',
+                        'User-Agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 13_3_1 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Mobile/15E148 App/RRSPApp platform/iPhone AppVersion/4.3.5'
+                    }
+                }
+            },
+            data: {
+                notify: '',
+                result: {
+                    daily: null,
+                    welfare: null
+                }
             }
         }
     }
@@ -605,19 +687,24 @@ function execute() {
         }
         config.iqiyi.provider.url += cookieVal;
         $task.fetch(config.iqiyi.provider).then(response => {
-            var obj = JSON.parse(response.body);
-            if (obj.msg == "成功") {
-                if (obj.data.signInfo.code == "A00000") {
-                    config.iqiyi.data.notify = `[${config.iqiyi.name}]${obj.data.signInfo.msg}！${obj.data.signInfo.data.acquireGiftList[0]}, 连续签到${obj.data.signInfo.data.continueSignDaysSum}天 🎉`;
-                    record(config.iqiyi.data.notify)
+            try {
+                var obj = JSON.parse(response.body);
+                if (obj && obj.msg == "成功") {
+                    if (obj.data.signInfo.code == "A00000") {
+                        config.iqiyi.data.notify = `[${config.iqiyi.name}]${obj.data.signInfo.msg}！${obj.data.signInfo.data.acquireGiftList[0]}, 连续签到${obj.data.signInfo.data.continueSignDaysSum}天 🎉`;
+                        record(config.iqiyi.data.notify)
+                    } else {
+                        // console.log("failure response: \n" + response.body);
+                        config.iqiyi.data.notify = `[${config.iqiyi.name}]${obj.data.signInfo.msg}⚠️`;
+                        record(`${config.iqiyi.data.notify}${obj.data.signInfo.msg}`);
+                    }
                 } else {
-                    // console.log("failure response: \n" + response.body);
-                    config.iqiyi.data.notify = `[${config.iqiyi.name}]${obj.data.signInfo.msg}⚠️`;
-                    record(`${config.iqiyi.data.notify}${obj.data.signInfo.msg}`);
+                    config.iqiyi.data.notify = `[${config.iqiyi.name}]签到失败⚠️`;
+                    record(`${config.iqiyi.data.notify}${obj.msg}`);
                 }
-            } else {
-                config.iqiyi.data.notify = `[${config.iqiyi.name}]签到失败⚠️`;
-                record(`${config.iqiyi.data.notify}${obj.msg}`);
+            } catch (e) {
+                config.iqiyi.data.notify = `[${config.iqiyi.name}]签到失败,数据解析失败⚠️`;
+                record(`${config.iqiyi.data.notify}-${JSON.stringify(e)}`);
             }
             finalNotify("iqiyi");
         }, reason => {
@@ -672,11 +759,11 @@ function execute() {
                     //failed
                     config.netease_music.data[type] = '未知错误⚠️';
                 }
-                checkIsAllProcessed();
             } catch (e) {
+                config.netease_music.data[type] = '未知错误见日志⚠️';
                 record(`网易云报错-${JSON.stringify(e)}`);
             }
-
+            checkIsAllProcessed();
         }
         let checkIsAllProcessed = () => {
             record(`[${config.netease_music.name}]-check-${config.netease_music.data.pc}-${config.netease_music.data.app}`)
@@ -694,7 +781,7 @@ function execute() {
 
     //#region 吾爱破解
 
-    let sign_52pojie = () => {
+    let sign__52pojie = () => {
         if (!global.sign._52pojie) {
             record(`[${config._52pojie.name}]未开启签到`);
             return;
@@ -708,20 +795,25 @@ function execute() {
         }
         config._52pojie.provider.headers.Cookie = cookieVal;
         $task.fetch(config._52pojie.provider).then(response => {
-            if (response.body.match(/\u606d\u559c\u60a8/)) {
-                //success
-                config._52pojie.data.notify = `[${config._52pojie.name}] 签到成功🎉`;
-            } else if (response.body.match(/\u4e0b\u671f\u518d\u6765/)) {
-                //repeat
-                config._52pojie.data.notify = `[${config._52pojie.name}] 重复签到🎉`;
-            } else if (response.body.match(/\u9700\u8981\u5148\u767b\u5f55/)) {
-                //cookie
-                config._52pojie.data.notify = `[${config._52pojie.name}] 未获取到Cookie⚠️`;
-            } else {
-                //script need update
-                config._52pojie.data.notify = `[${config._52pojie.name}] 脚本需更新⚠️`;
+            try {
+                if (response.body.match(/\u606d\u559c\u60a8/)) {
+                    //success
+                    config._52pojie.data.notify = `[${config._52pojie.name}] 签到成功🎉`;
+                } else if (response.body.match(/\u4e0b\u671f\u518d\u6765/)) {
+                    //repeat
+                    config._52pojie.data.notify = `[${config._52pojie.name}] 重复签到🎉`;
+                } else if (response.body.match(/\u9700\u8981\u5148\u767b\u5f55/)) {
+                    //cookie
+                    config._52pojie.data.notify = `[${config._52pojie.name}] 未获取到Cookie⚠️`;
+                } else {
+                    //script need update
+                    config._52pojie.data.notify = `[${config._52pojie.name}] 脚本需更新⚠️`;
+                }
+                record(config._52pojie.data.notify);
+            } catch (e) {
+                config._52pojie.data.notify = `[${config._52pojie.name}] 脚本数据解析异常⚠️`;
+                record(`${config._52pojie.data.notify}-${JSON.stringify(e)}`)
             }
-            record(config._52pojie.data.notify);
             finalNotify("_52pojie");
         }, reason => {
             config._52pojie.data.notify = `[${config._52pojie.name}] 签到失败！网络请求异常⚠️`;
@@ -749,17 +841,23 @@ function execute() {
         let checkSign = () => {
             config.v2ex.provider.check.headers.Cookie = cookieVal;
             $task.fetch(config.v2ex.provider.check).then(response => {
-                let data = response.body;
-                if (data.indexOf('每日登录奖励已领取') >= 0) {
-                    config.v2ex.data.notify = `[${config.v2ex.name}] 重复签到🎉`
-                    record(config.v2ex.data.notify);
-                    finalNotify("v2ex");
-                } else {
-                    let regex = /<input[^>]*\/mission\/daily\/redeem\?once=(\d+)[^>]*>/g;
-                    let code = regex.exec(data);
-                    if (code) {
-                        signMission(code[1])
+                try {
+                    let data = response.body;
+                    if (data.indexOf('每日登录奖励已领取') >= 0) {
+                        config.v2ex.data.notify = `[${config.v2ex.name}] 重复签到🎉`
+                        record(config.v2ex.data.notify);
+                        finalNotify("v2ex");
+                    } else {
+                        let regex = /<input[^>]*\/mission\/daily\/redeem\?once=(\d+)[^>]*>/g;
+                        let code = regex.exec(data);
+                        if (code) {
+                            signMission(code[1])
+                        }
                     }
+                } catch (e) {
+                    config.v2ex.data.notify = `[${config.v2ex.name}] 签到失败！数据处理异常⚠️`;
+                    record(`${config.v2ex.data.notify}-${JSON.stringify(e)}`);
+                    finalNotify("v2ex");
                 }
             }, reason => {
                 config.v2ex.data.notify = `[${config.v2ex.name}] 签到失败！网络请求异常⚠️`;
@@ -771,21 +869,28 @@ function execute() {
             config.v2ex.provider.sign.headers.Cookie = cookieVal;
             config.v2ex.provider.sign.url = `https://www.v2ex.com/mission/daily/redeem?once=${code}`;
             $task.fetch(config.v2ex.provider.sign).then(response => {
-                let data = response.body;
-                if (data.indexOf('每日登录奖励已领取') >= 0) {
-                    let days = 0;
-                    let daysRegex = /已连续登录 (\d{1,10}) 天/;
-                    if (daysRegex.test(data)) {
-                        days = daysRegex.exec(data)[1]
+                try {
+                    let data = response.body;
+                    if (data.indexOf('每日登录奖励已领取') >= 0) {
+                        let days = 0;
+                        let daysRegex = /已连续登录 (\d{1,10}) 天/;
+                        if (daysRegex.test(data)) {
+                            days = daysRegex.exec(data)[1]
+                        }
+                        config.v2ex.data.notify = `[${config.v2ex.name}] 签到成功🎉${days>0?`已连续签到${days}天`:''}`
+                        record(config.v2ex.data.notify);
+                        finalNotify("v2ex");
+                    } else {
+                        config.v2ex.data.notify = `[${config.v2ex.name}] 签到失败⚠️`
+                        record(`${config.v2ex.data.notify}-签到响应数据中没有检测到'每日登录奖励已领取'字段,判定为签到失败,可自行访问${config.v2ex.provider.sign.url}进行签到`)
+                        finalNotify("v2ex");
                     }
-                    config.v2ex.data.notify = `[${config.v2ex.name}] 签到成功🎉${days>0?`已连续签到${days}天`:''}`
-                    record(config.v2ex.data.notify);
-                    finalNotify("v2ex");
-                } else {
-                    config.v2ex.data.notify = `[${config.v2ex.name}] 签到失败⚠️`
-                    record(`${config.v2ex.data.notify}-${data}`)
+                } catch (e) {
+                    config.v2ex.data.notify = `[${config.v2ex.name}] 签到失败⚠️详见日志报错`
+                    record(`${config.v2ex.data.notify}-${JSON.stringify(e)}`);
                     finalNotify("v2ex");
                 }
+
             }, reason => {
                 config.v2ex.data.notify = `[${config.v2ex.name}] 签到失败！网络请求异常⚠️⚠️`;
                 record(`${config.v2ex.data.notify}-${reason.error}`);
@@ -795,87 +900,6 @@ function execute() {
         checkSign();
     }
 
-    //#endregion
-
-    //#region 微博超话
-    let sign_weibo_super = () => {
-        if (!global.sign.weibo_super) {
-            record(`[${config.weibo_super.name}]未开启签到`);
-            return;
-        }
-        if (global.data.weibo_super.length <= 0) {
-            config.weibo_super.data.notify = `[${config.weibo_super.name}] 未配置超话ID`;
-            record(config.weibo_super.data.notify);
-            finalNotify("weibo_super");
-            return;
-        }
-        let cookieVal = $prefs.valueForKey(config.weibo_super.cookie);
-        if (!cookieVal) {
-            config.weibo_super.data.notify = `[${config.weibo_super.name}] 未获取到Cookie⚠️`;
-            record(`${config.weibo_super.data.notify}, 请在文件最上方的glabal-data-weibo_super中配置相应ID, 前往https://nave.work/%E5%BE%AE%E5%8D%9A%E8%B6%85%E8%AF%9D%E8%87%AA%E5%8A%A8%E7%AD%BE%E5%88%B0%E8%84%9A%E6%9C%AC.html 进行查看具体教程`);
-            finalNotify("weibo_super");
-            return;
-        }
-        let sign = index => {
-            if (global.data.weibo_super.length <= index) {
-                combain();
-                finalNotify('weibo_super');
-            }
-            let name = global.data.weibo_super[index][0];
-            let super_id = global.data.weibo_super[index][1];
-            config.weibo_super.provider.url = `https://weibo.com/p/aj/general/button?ajwvr=6&api=http://i.huati.weibo.com/aj/super/checkin&texta=%E7%AD%BE%E5%88%B0&textb=%E5%B7%B2%E7%AD%BE%E5%88%B0&status=0&id=${super_id}&location=page_100808_super_index&timezone=GMT+0800&lang=zh-cn&plat=MacIntel&ua=Mozilla/5.0%20(Macintosh;%20Intel%20Mac%20OS%20X%2010_15)%20AppleWebKit/605.1.15%20(KHTML,%20like%20Gecko)%20Version/13.0.4%20Safari/605.1.15&screen=375*812&__rnd=1576850070506`
-            config.weibo_super.provider.headers.Cookie = cookieVal;
-            let result = {
-                name,
-                success: true,
-                icon: '🎉'
-            };
-            $task.fetch(config.weibo_super.provider).then(response => {
-                var obj = {};
-                try {
-                    obj = JSON.parse(response.body);
-                    var code = obj.code;
-                    var msg = obj.msg;
-                    if (code == 100003) { // 行为异常，需要重新验证
-                        result.success = false;
-                        result.icon = '⚠️';
-                        config.weibo_super.data.result.push(result);
-                        record(`[${config.weibo_super.name}] ${name}  ${msg}, ${obj.data.location}`);
-                    } else if (code == 100000) {
-                        config.weibo_super.data.result.push(result)
-                        record(`[${config.weibo_super.name}] ${name} 签到成功🎉`);
-                    } else if (code == 382004) {
-                        config.weibo_super.data.result.push(result)
-                        record(`[${config.weibo_super.name}] ${name} ${msg.replace("(382004)", "")}🎉`);
-                    } else {
-                        result.success = false;
-                        result.icon = '❕';
-                        config.weibo_super.data.result.push(result);
-                        record(`[${config.weibo_super.name}] ${name} ${msg}❕`);
-                    }
-                } catch (e) {
-                    result.success = false;
-                    result.icon = '⚠️';
-                    config.weibo_super.data.result.push(result);
-                    record(`[${config.weibo_super.name}] ${name} 出错⚠️`);
-                }
-                sign(++index);
-            }, reason => {
-                result.success = false;
-                result.icon = '❌';
-                config.weibo_super.data.result.push(result);
-                record(`[${config.weibo_super.name}] ${name} 签到错误,${reason.error}`);
-                sign(++index);
-            });
-        }
-        let combain = () => {
-            config.weibo_super.data.notify = `[${config.weibo_super.name}]`;
-            for (item of config.weibo_super.data.result) {
-                config.weibo_super.data.notify += ` 「${item.name}」${item.icon}`;
-            }
-        }
-        sign(0);
-    }
     //#endregion
 
     //#region 中国电信营业厅
@@ -899,19 +923,24 @@ function execute() {
         }
         config.china_telecom.provider.headers.Cookie = cookieVal;
         $task.fetch(config.china_telecom.provider).then(response => {
-            var body = JSON.parse(response.body);
-            if (body.resoultCode == "0") {
-                if (body.data.code == 1) {
-                    config.china_telecom.data.notify = `[${config.china_telecom.name}] 签到成功,获得金币${body.data.coin}/金豆${body.data.flow}`
-                } else if (body.data.code == 0) {
-                    config.china_telecom.data.notify = `[${config.china_telecom.name}] 签到成功,${body.data.msg}`
+            try {
+                var body = JSON.parse(response.body);
+                if (body.resoultCode == "0") {
+                    if (body.data.code == 1) {
+                        config.china_telecom.data.notify = `[${config.china_telecom.name}] 签到成功,获得金币${body.data.coin}/金豆${body.data.flow}`;
+                    } else if (body.data.code == 0) {
+                        config.china_telecom.data.notify = `[${config.china_telecom.name}] 签到成功,${body.data.msg}`;
+                    } else {
+                        config.china_telecom.data.notify = `[${config.china_telecom.name}] ${body.data.msg}`;
+                    }
                 } else {
-                    config.china_telecom.data.notify = `[${config.china_telecom.name}] ${body.data.msg}`
+                    config.china_telecom.data.notify = `[${config.china_telecom.name}] 签到失败, ${body.data.msg}-${body.resoultCode}`;
                 }
-            } else {
-                config.china_telecom.data.notify = `[${config.china_telecom.name}] 签到失败, ${body.data.msg}-${body.resoultCode}`
+                record(config.china_telecom.data.notify)
+            } catch (e) {
+                config.china_telecom.data.notify = `[${config.china_telecom.name}] 签到失败-e`;
+                record(`${config.china_telecom.data.notify}-error:${JSON.stringify(e)}`);
             }
-            record(config.china_telecom.data.notify)
             finalNotify("china_telecom");
         }, reason => {
             config.china_telecom.data.notify = `[${config.china_telecom.name}] 签到失败,${reason.error}`
@@ -921,34 +950,221 @@ function execute() {
     }
     //#endregion
 
+    //#region 饿了么
+
+    let sign_eleme = () => {
+        if (!global.sign.eleme) {
+            record(`[${config.eleme.name}] 未开启签到`);
+            return;
+        }
+        let cookieVal = $prefs.valueForKey(config.eleme.cookie);
+        if (!cookieVal) {
+            config.eleme.data.notify = `[${config.eleme.name}] 未获取到Cookie⚠️`;
+            record(config.eleme.data.notify);
+            finalNotify("eleme");
+            return;
+        }
+        let eleUserId = cookieVal;
+
+        let sign = () => {
+            config.eleme.provider.sign.url += `${eleUserId}/sign_in`;
+            $task.fetch(config.eleme.provider.sign).then(response => {
+                try {
+                    if (response.statusCode == 200) {
+                        config.eleme.data.notify = `[${config.eleme.name}] 签到成功🎉`;
+                        record(config.eleme.data.notify);
+                        finalNotify("eleme");
+                        // prize();
+                    } else {
+                        check();
+                    }
+                } catch (e) {
+                    config.eleme.data.notify = `[${config.eleme.name}] 签到失败！数据解析异常⚠️`;
+                    record(`${config.eleme.data.notify} : ${JSON.stringify(e)}`);
+                    finalNotify("eleme");
+                }
+            }, reason => {
+                config.eleme.data.notify = `[${config.eleme.name}] 签到失败！网络请求异常⚠️`;
+                record(`${config.eleme.data.notify} : ${reason.error}`);
+                finalNotify("eleme");
+            })
+        }
+        let check = () => {
+            config.eleme.provider.check.url += `${eleUserId}/sign_in/info`;
+            $task.fetch(config.eleme.provider.check).then(resp => {
+                try {
+                    let result = JSON.parse(resp.body);
+                    if (result && result.has_signed_in_today) {
+                        config.eleme.data.notify = `[${config.eleme.name}] 今日已签到🎉`;
+                    } else {
+                        config.eleme.data.notify = `[${config.eleme.name}] 签到失败`;
+                    }
+                    record(config.eleme.data.notify);
+                } catch (e) {
+                    config.eleme.data.notify = `[${config.eleme.name}] 签到异常`;
+                    record(`${config.eleme.data.notify}-${JSON.stringify(e)}`);
+                }
+                finalNotify("eleme");
+            }, err => {
+                config.eleme.data.notify = `[${config.eleme.name}] 网络请求异常⚠️`;
+                record(`${config.eleme.data.notify} : ${err.error}`);
+                finalNotify("eleme");
+            })
+        }
+        let prize = () => {
+            config.eleme.data.notify = `[${config.eleme.name}] 签到成功🎉`;
+            config.eleme.provider.prize.url += `${eleUserId}/sign_in/daily/prize`;
+            $task.fetch(config.eleme.provider.prize).then(resp => {
+                let result = JSON.parse(resp.body);
+                if (result.message) {
+                    //此时是已经领取过奖励了,不处理
+                } else if (result.length > 0) {
+                    let selectedOne = result.filter(it => it.status == 1);
+                    if (selectedOne.length >= 1 && selectedOne[0].prizes) {
+                        let reward = `${selectedOne[0].prizes.name}${selectedOne[0].prizes.amount}元`
+                        config.eleme.data.notify += ` 翻牌:${reward}`;
+                    }
+                }
+                record(config.eleme.data.notify);
+                finalNotify("eleme");
+            }, err => {
+                record(`${config.eleme.data.notify},翻牌失败-${err.error}`);
+                finalNotify("eleme");
+            })
+        }
+        sign();
+    }
+
+    //#endregion
+
+    //#region 人人视频
+    let sign_rrtv = () => {
+        if (!global.sign.rrtv) {
+            record(`[${config.rrtv.name}] 未开启签到`);
+            return;
+        }
+        console.log(`[${config.rrtv.name}]开始签到-${config.rrtv.cookie}`)
+        let cookieVal = $prefs.valueForKey(config.rrtv.cookie);
+        console.log(`[${config.rrtv.name}]cookie-${cookieVal}`)
+        if (!cookieVal) {
+            console.log(`[${config.rrtv.name}]未获取到cookie`)
+            config.rrtv.data.notify = `[${config.rrtv.name}] 未获取到Cookie⚠️`;
+            console.log(`[${config.rrtv.name}]未获取到cookie1`)
+            record(config.rrtv.data.notify);
+            console.log(`[${config.rrtv.name}]未获取到cookie2`)
+            finalNotify("rrtv");
+            console.log(`[${config.rrtv.name}]未获取到cookie3`)
+        }
+    
+        let daily = () => {
+            config.rrtv.provider.daily.headers.token = cookieVal;
+            $task.fetch(config.rrtv.provider.daily).then(resp => {
+                let result = JSON.parse(resp.body);
+                config.rrtv.data.result.daily = result;
+                check();
+            }, err => {
+                config.rrtv.data.result.daily = {
+                    code: '9999'
+                };
+                check();
+            })
+        }
+        let welfare = () => {
+            config.rrtv.provider.welfare.headers.token = cookieVal;
+            $task.fetch(config.rrtv.provider.welfare).then(resp => {
+                let result = JSON.parse(resp.body);
+                config.rrtv.data.result.welfare = result;
+                check();
+            }, err => {
+                config.rrtv.data.result.welfare = {
+                    code: '9999'
+                };
+                check();
+            })
+        }
+        let info = () => {
+            config.rrtv.provider.info.headers.token = cookieVal;
+            $task.fetch(config.rrtv.provider.info).then(resp => {
+                let result = JSON.parse(resp.body);
+                let infoResult = "";
+                let signResult = "失败";
+                let swllfareResult = "失败";
+                if (config.rrtv.data.result.daily.code == "0000") {
+                    signResult = "成功";
+                } else if (config.rrtv.data.result.daily.code == "8750") {
+                    signResult = "重复";
+                }
+                if (config.rrtv.data.result.welfare.code == "0000") {
+                    swllfareResult = "成功";
+                } else if (config.rrtv.data.result.welfare.code == "8623") {
+                    swllfareResult = "重复";
+                }
+                if (result.code == '0000') {
+                    const levelStr = '';//result.data.user.levelStr ? ` (${result.data.user.levelStr})` : ``
+                    infoResult = `, LV: ${result.data.user.level}${levelStr}, 积分: ${result.data.user.score}`
+                }
+                config.rrtv.data.notify = `[${config.rrtv.name}] 签到${signResult}, 福利${swllfareResult}${infoResult}`;
+                record(config.rrtv.data.notify);
+                finalNotify("rrtv");
+            }, err => {
+
+            })
+        }
+        let check = () => {
+            if (!config.rrtv.data.result.daily || !config.rrtv.data.result.welfare) return;
+            info();
+        }
+        daily();
+        welfare();
+    }
+    ////#endregion
+
     //#endregion
 
     //#region 签到统一管控
     let startSign = () => {
-        if (global.sign.baidu_tieba) sign_baidu_tieba();
-        if (global.sign.iqiyi) sign_iqiyi();
-        if (global.sign.netease_music) sign_netease_music();
-        if (global.sign._52pojie) sign_52pojie();
-        if (global.sign.v2ex) sign_v2ex();
-        if (global.sign.weibo_super) sign_weibo_super();
-        if (global.sign.china_telecom) sign_china_telecom();
+        if (global.parallel) {
+            if (global.sign.baidu_tieba) sign_baidu_tieba();
+            if (global.sign.iqiyi) sign_iqiyi();
+            if (global.sign.netease_music) sign_netease_music();
+            if (global.sign._52pojie) sign__52pojie();
+            if (global.sign.v2ex) sign_v2ex();
+            if (global.sign.china_telecom) sign_china_telecom();
+            if (global.sign.eleme) sign_eleme();
+            if (global.sign.rrtv) sign_rrtv();
+        } else {
+            if (global.sign.baidu_tieba) sign_baidu_tieba();
+            else if (global.sign.iqiyi) sign_iqiyi();
+            else if (global.sign.netease_music) sign_netease_music();
+            else if (global.sign._52pojie) sign__52pojie();
+            else if (global.sign.v2ex) sign_v2ex();
+            else if (global.sign.china_telecom) sign_china_telecom();
+            else if (global.sign.eleme) sign_eleme();
+            else if (global.sign.rrtv) sign_rrtv();
+            else $notify("All In One", "详细签到信息可见日志", "暂无需签到的项目");
+        }
     }
 
     let finalNotify = type => {
         config[type].executed = true;
-        var isAllProcessed = true;
+        var notSignItem = "";
         for (var item in global.sign) {
             if (global.sign[item]) {
                 if (!config[item].executed) {
-                    isAllProcessed = false;
+                    notSignItem = item;
                     break;
                 }
             }
         }
+        if (notSignItem && !global.parallel) {
+            record(`准备执行${notSignItem}`);
+            eval(`sign_${notSignItem}()`);
+            return;
+        }
         let sign_detail = '';
         let breakLine = `
 `;
-        if (isAllProcessed) {
+        if (!notSignItem) {
             for (var item in global.sign) {
                 // record(`提醒消息-${item}-${global.sign[item]}`)
                 if (global.sign[item]) {
@@ -973,3 +1189,16 @@ ${content.splice(0, 60)}`);
 
     startSign();
 }
+
+let helper = {
+    getCookieByName: (cookie, name) => {
+        var reg = new RegExp("(^| )" + name + "=([^;]*)(;|$)");
+        var arr = cookie.match(reg);
+        if (arr && arr.length >= 3)
+            return arr[2];
+        else
+            return null;
+    }
+}
+
+master();

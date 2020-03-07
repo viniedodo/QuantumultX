@@ -7,8 +7,8 @@
     您也可直接在tg中联系@wechatu
 */
 // #region 固定头部
-let isQuantumultX = $task !== undefined; //判断当前运行环境是否是qx
-let isSurge = $httpClient !== undefined; //判断当前运行环境是否是surge
+let isQuantumultX = $task != undefined; //判断当前运行环境是否是qx
+let isSurge = $httpClient != undefined; //判断当前运行环境是否是surge
 // http请求
 var $task = isQuantumultX ? $task : {};
 var $httpClient = isSurge ? $httpClient : {};
@@ -137,6 +137,7 @@ if (isSurge) {
     }
 }
 // #endregion
+
 /* Hitokoto Calendar(Made by Meeta)
 文本编辑模式下复制粘贴
 cron "0 0 8,18 * * *" script-path=https://meetagit.github.io/MeetaRules/Surge/Scripting/Calendar.js

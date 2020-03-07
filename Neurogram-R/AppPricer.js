@@ -7,8 +7,19 @@
     您也可直接在tg中联系@wechatu
 */
 // #region 固定头部
-let isQuantumultX = $task !== undefined; //判断当前运行环境是否是qx
-let isSurge = $httpClient !== undefined; //判断当前运行环境是否是surge
+let isQuantumultX = $task != undefined; //判断当前运行环境是否是qx
+let isSurge = $httpClient != undefined; //判断当前运行环境是否是surge
+// 判断request还是respons
+// down方法重写
+var $done = (obj={}) => {
+    var isRequest = typeof $request != "undefined";
+    if (isQuantumultX) {
+        return isRequest ? $done({}) : ""
+    }
+    if (isSurge) {
+        return isRequest ? $done({}) : $done()
+    }
+}
 // http请求
 var $task = isQuantumultX ? $task : {};
 var $httpClient = isSurge ? $httpClient : {};
@@ -149,8 +160,8 @@ Telegram: Neurogram
 GitHub: Neurogram-R
 */
 
-const region = "cn"
-const appIds = ["1483907624","1455832781","1314212521","904237743","395680819","576588894","1459076631","916366645","1312014438","1423330822","1085978097","1049254261","1489780246","1407367202","436577167","1481018071","1315744137","1436650069","980368562","1007355333","1126386264","492648096","950519698","317107309","539397400","1444671526","1416894836","1117998129","1462386180","558818638","691121579","1474856599","436577167","641613694","1312014438","1416894836","1117998129","1462386180","558818638","691121579","1474856599","436577167","641613694","1312014438"]
+const region = "us"
+const appIds = ["517329357","1476649036","924695435","680469088","869346854","935754064","1035331258","904237743","946930094","1483907624","1455832781","1314212521","904237743","395680819","576588894","1459076631","916366645","1312014438","1423330822","1085978097","1049254261","1489780246","1407367202","436577167","1481018071","1315744137","1436650069","980368562","1007355333","1126386264","492648096","950519698","317107309","539397400","1444671526","1416894836","1117998129","1462386180","558818638","691121579","1474856599","436577167","641613694","1312014438","1416894836","1117998129","1462386180","558818638","691121579","1474856599","436577167","641613694","1312014438"]
 
 var cacheData = $persistentStore.read()
 if (!cacheData) {
@@ -186,7 +197,7 @@ $httpClient.post('https://itunes.apple.com/lookup?id=' + appIds + "&country=" + 
             $notification.post("Price Changed", "", priceChanged)
         }
         if (newAppAdded) {
-            $notification.post("New Apps Added", "", newAppAdded)
+            $notification.post("App Pricer", "", newAppAdded)
         }
         $persistentStore.write(JSON.stringify(cacheData))
         $done()
