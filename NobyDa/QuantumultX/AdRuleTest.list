@@ -1,4 +1,4 @@
-#Update 2020.4.28 Self-use for testing only, there may be a lot of manslaughter.
+#Update 2020.7.21 Self-use for testing only, there may be a lot of manslaughter.
 DOMAIN-SUFFIX,admaster.com,REJECT
 DOMAIN-SUFFIX,0z5jn.cn,REJECT
 DOMAIN-SUFFIX,114so.cn,REJECT
@@ -144,7 +144,6 @@ DOMAIN-SUFFIX,bugreportv2.qq.com,REJECT
 DOMAIN-SUFFIX,c.l.qq.com,REJECT
 DOMAIN-SUFFIX,c2.l.qq.com,REJECT
 DOMAIN-SUFFIX,cb.l.qq.com,REJECT
-DOMAIN-SUFFIX,cdn.ark.qq.com,REJECT
 DOMAIN-SUFFIX,cfg.imtt.qq.com,REJECT
 DOMAIN-SUFFIX,client.show.qq.com,REJECT
 DOMAIN-SUFFIX,cm.e.qq.com,REJECT
@@ -1202,7 +1201,6 @@ DOMAIN-SUFFIX,flurry.com,REJECT
 DOMAIN-SUFFIX,ios.bugly.qq.com,REJECT
 DOMAIN-SUFFIX,iadsdk.apple.com,REJECT
 DOMAIN-SUFFIX,www.jinshanju.com,REJECT
-DOMAIN-SUFFIX,iesdouyin.com,REJECT
 DOMAIN-SUFFIX,test-www.douyin.com,REJECT
 DOMAIN-SUFFIX,safebrowsing.urlsec.qq.com,REJECT
 DOMAIN-SUFFIX,adserver-ad.321mh.com,REJECT
